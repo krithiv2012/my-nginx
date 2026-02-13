@@ -33,7 +33,7 @@ jobs:
   # -------------------
   # 2️⃣ Deploy to Dev
   # -------------------
-  # command line values reset done
+  # command line values reset done again
   deploy-dev:
     runs-on: self-hosted
     needs: lint
