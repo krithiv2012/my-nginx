@@ -1,17 +1,137 @@
-name: Deploy to Minikube
+name: CI/CD Pipeline for Helm
 
 on:
   push:
     branches:
+      - develop
+      - staging
       - main
 
+env:
+  CHART_PATH: ./my-nginx
+  RELEASE_NAME: nginx-release
+  NAMESPACE_DEV: dev
+  NAMESPACE_STAGING: staging
+  NAMESPACE_PROD: prod
+
 jobs:
-  deploy:
-    runs-on: self-hosted   # runs on your machine
+
+  # -------------------
+  # 1️⃣ Build & Lint Helm
+  # -------------------
+  lint:
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Deploy Helm chart
+      - name: Helm Lint
         run: |
-          helm upgrade --install nginx-release /deve/helm-charts/my-nginx --namespace default
+          echo "Linting Helm chart..."
+          helm lint $CHART_PATH
+
+  # -------------------
+  # 2️⃣ Deploy to Dev
+  # -------------------
+  deploy-dev:
+    runs-on: self-hosted
+    needs: lint
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Helm chart to Dev
+        run: |
+          echo "Deploying to Dev..."
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_DEV \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA} \
+            --dry-run --debug
+
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_DEV \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA}
+
+      - name: Smoke Test Dev
+        run: |
+          echo "Checking Dev deployment..."
+          kubectl get pods -n $NAMESPACE_DEV
+
+  # -------------------
+  # 3️⃣ Deploy to Staging
+  # -------------------
+  deploy-staging:
+    runs-on: self-hosted
+    needs: deploy-dev
+    if: github.ref == 'refs/heads/staging'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy Helm chart to Staging
+        run: |
+          echo "Deploying to Staging..."
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_STAGING \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA} \
+            --dry-run --debug
+
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_STAGING \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA}
+
+      - name: Smoke Test Staging
+        run: |
+          kubectl get pods -n $NAMESPACE_STAGING
+
+  # -------------------
+  # 4️⃣ Deploy to Production (Manual Approval)
+  # -------------------
+  deploy-prod:
+    runs-on: self-hosted
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/prod'
+    environment:
+      name: production
+      url: https://myapp.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Dry-run Helm Prod
+        run: |
+          echo "Dry-run deploy to Prod..."
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_PROD \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA} \
+            --dry-run --debug
+
+      - name: Deploy Helm to Prod
+        run: |
+          echo "Deploying to Production..."
+          helm upgrade --install $RELEASE_NAME $CHART_PATH \
+            --namespace $NAMESPACE_PROD \
+            --create-namespace \
+            --set image.tag=${GITHUB_SHA} || \
+            (echo "Deployment failed, rolling back..." && helm rollback $RELEASE_NAME)
+
+      - name: Smoke Test Prod
+        run: |
+          kubectl get pods -n $NAMESPACE_PROD
+
+  # -------------------
+  # 5️⃣ Notification placeholder
+  # -------------------
+  notify:
+    runs-on: self-hosted
+    needs: [deploy-dev, deploy-staging, deploy-prod]
+    steps:
+      - name: Send Notification
+        run: |
+          echo "TODO: Add Slack / Email notification here."
