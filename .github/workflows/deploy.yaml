@@ -8,7 +8,7 @@ on:
       - prod
 
 env:
-  CHART_PATH: ./my-nginx
+  CHART_PATH: /deve/helm-charts/my-nginx
   RELEASE_NAME: nginx-release
   NAMESPACE_DEV: dev
   NAMESPACE_STAGING: staging
