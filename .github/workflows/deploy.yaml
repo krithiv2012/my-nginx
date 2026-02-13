@@ -3,9 +3,9 @@ name: CI/CD Pipeline for Helm
 on:
   push:
     branches:
-      - develop
+      - dev
       - staging
-      - main
+      - prod
 
 env:
   CHART_PATH: ./my-nginx
