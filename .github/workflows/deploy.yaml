@@ -46,14 +46,12 @@ jobs:
           echo "Deploying to Dev..."
           helm upgrade --install $RELEASE_NAME $CHART_PATH \
             --namespace $NAMESPACE_DEV \
-            --create-namespace \
-            --set image.tag=${GITHUB_SHA} \
+            --create-namespace
             --dry-run --debug
 
           helm upgrade --install $RELEASE_NAME $CHART_PATH \
             --namespace $NAMESPACE_DEV \
-            --create-namespace \
-            --set image.tag=${GITHUB_SHA}
+            --create-namespace
 
       - name: Smoke Test Dev
         run: |
