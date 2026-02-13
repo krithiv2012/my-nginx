@@ -46,7 +46,7 @@ jobs:
           echo "Deploying to Dev..."
           helm upgrade --install $RELEASE_NAME $CHART_PATH \
             --namespace $NAMESPACE_DEV \
-            --create-namespace
+            --create-namespace \
             --dry-run=client --debug
 
           helm upgrade --install $RELEASE_NAME $CHART_PATH \
